@@ -1,0 +1,163 @@
+nohup: ignoring input
+{"level":"info","ts":1770111661.6731298,"caller":"database/database.go:38","msg":"Database initialized successfully"}
+{"level":"info","ts":1770111661.6738937,"caller":"server/main.go:40","msg":"Packet Repackage Server starting","db":"./data/packet.db","port":"8080","queues":"0-3"}
+{"level":"info","ts":1770111661.6744006,"caller":"server/main.go:46","msg":"Loading network configurations from database"}
+{"level":"info","ts":1770111661.6748426,"caller":"network/startup.go:13","msg":"Loading network configurations from database"}
+{"level":"info","ts":1770111661.6752758,"caller":"network/bridge.go:37","msg":"Ensuring Bridge exists and is configured"}
+{"level":"info","ts":1770111661.695494,"caller":"network/startup.go:28","msg":"Found configurations to apply","count":2}
+{"level":"info","ts":1770111661.6962314,"caller":"network/startup.go:34","msg":"Applying configuration","interface":"ens38","link_type":"access","vlan_id":"2"}
+{"level":"info","ts":1770111661.6964803,"caller":"network/bridge.go:59","msg":"Configuring VLAN on interface","interface":"ens38","link_type":"access","vlan_id":"2"}
+{"level":"info","ts":1770111661.702167,"caller":"network/bridge.go:101","msg":"Interface already in Bridge, skipping attachment","interface":"ens38"}
+{"level":"info","ts":1770111661.7176821,"caller":"network/bridge.go:142","msg":"Creating VLAN interfaces","interface":"ens38"}
+{"level":"info","ts":1770111661.7203481,"caller":"network/startup.go:49","msg":"Configuration applied successfully","interface":"ens38"}
+{"level":"info","ts":1770111661.720911,"caller":"network/startup.go:34","msg":"Applying configuration","interface":"ens39","link_type":"access","vlan_id":"2"}
+{"level":"info","ts":1770111661.7211266,"caller":"network/bridge.go:59","msg":"Configuring VLAN on interface","interface":"ens39","link_type":"access","vlan_id":"2"}
+{"level":"info","ts":1770111661.7264476,"caller":"network/bridge.go:101","msg":"Interface already in Bridge, skipping attachment","interface":"ens39"}
+{"level":"info","ts":1770111661.7402427,"caller":"network/bridge.go:142","msg":"Creating VLAN interfaces","interface":"ens39"}
+{"level":"info","ts":1770111661.7434454,"caller":"network/startup.go:49","msg":"Configuration applied successfully","interface":"ens39"}
+{"level":"info","ts":1770111661.7437575,"caller":"network/startup.go:53","msg":"Configuration loading complete","success":2,"failed":0}
+{"level":"info","ts":1770111661.7441244,"caller":"server/main.go:55","msg":"Applying NFTables rules from database"}
+{"level":"info","ts":1770111661.7444966,"caller":"network/nftmanager.go:16","msg":"Applying NFTables rules from database"}
+{"level":"info","ts":1770111661.744802,"caller":"network/nftmanager.go:66","msg":"Ensuring NFTables infrastructure exists"}
+{"level":"info","ts":1770111661.7737896,"caller":"network/nftmanager.go:80","msg":"NFTables infrastructure ready"}
+{"level":"info","ts":1770111661.774244,"caller":"network/nftmanager.go:86","msg":"Clearing existing NFTables rules"}
+{"level":"info","ts":1770111661.7808478,"caller":"network/nftmanager.go:37","msg":"Found enabled rules to apply","count":1}
+{"level":"info","ts":1770111661.7816832,"caller":"network/nftmanager.go:43","msg":"Applying rule","name":"RangeQueue","command":"nft add rule bridge netvine-table base-rule-chain udp dport 514 log prefix \"test-rule\" queue num 0-3 bypass"}
+{"level":"info","ts":1770111661.7872136,"caller":"network/nftmanager.go:57","msg":"NFTables rules applied","success":1,"failed":0}
+{"level":"info","ts":1770111661.7877657,"caller":"nfqueue/handler.go:65","msg":"NFQueue started","queue":0}
+{"level":"info","ts":1770111661.7886953,"caller":"nfqueue/handler.go:65","msg":"NFQueue started","queue":1}
+{"level":"info","ts":1770111661.7892022,"caller":"nfqueue/handler.go:65","msg":"NFQueue started","queue":2}
+{"level":"info","ts":1770111661.7897632,"caller":"nfqueue/handler.go:65","msg":"NFQueue started","queue":3}
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /api/interfaces           --> packet-repackage/api.ListInterfaces (5 handlers)
+[GIN-debug] GET    /api/interfaces/:name     --> packet-repackage/api.GetInterface (5 handlers)
+[GIN-debug] POST   /api/vlan                 --> packet-repackage/api.ConfigureVLAN (5 handlers)
+[GIN-debug] GET    /api/vlan/:interface      --> packet-repackage/api.GetVLANConfig (5 handlers)
+[GIN-debug] POST   /api/vlan/ip              --> packet-repackage/api.AddVLANIP (5 handlers)
+[GIN-debug] DELETE /api/vlan/ip/:interface   --> packet-repackage/api.RemoveVLANIP (5 handlers)
+[GIN-debug] POST   /api/interface/status     --> packet-repackage/api.SetInterfaceStatus (5 handlers)
+[GIN-debug] GET    /api/fields               --> packet-repackage/api.ListFields (5 handlers)
+[GIN-debug] GET    /api/fields/:id           --> packet-repackage/api.GetField (5 handlers)
+[GIN-debug] POST   /api/fields               --> packet-repackage/api.CreateField (5 handlers)
+[GIN-debug] PUT    /api/fields/:id           --> packet-repackage/api.UpdateField (5 handlers)
+[GIN-debug] DELETE /api/fields/:id           --> packet-repackage/api.DeleteField (5 handlers)
+[GIN-debug] GET    /api/rules                --> packet-repackage/api.ListRules (5 handlers)
+[GIN-debug] GET    /api/rules/:id            --> packet-repackage/api.GetRule (5 handlers)
+[GIN-debug] POST   /api/rules                --> packet-repackage/api.CreateRule (5 handlers)
+[GIN-debug] PUT    /api/rules/:id            --> packet-repackage/api.UpdateRule (5 handlers)
+[GIN-debug] DELETE /api/rules/:id            --> packet-repackage/api.DeleteRule (5 handlers)
+[GIN-debug] POST   /api/rules/:id/toggle     --> packet-repackage/api.ToggleRule (5 handlers)
+[GIN-debug] GET    /api/nftrules             --> packet-repackage/api.ListNFTRules (5 handlers)
+[GIN-debug] GET    /api/nftrules/:id         --> packet-repackage/api.GetNFTRule (5 handlers)
+[GIN-debug] POST   /api/nftrules             --> packet-repackage/api.CreateNFTRule (5 handlers)
+[GIN-debug] PUT    /api/nftrules/:id         --> packet-repackage/api.UpdateNFTRule (5 handlers)
+[GIN-debug] DELETE /api/nftrules/:id         --> packet-repackage/api.DeleteNFTRule (5 handlers)
+[GIN-debug] POST   /api/nftrules/:id/toggle  --> packet-repackage/api.ToggleNFTRule (5 handlers)
+[GIN-debug] POST   /api/nftrules/apply       --> packet-repackage/api.ApplyNFTRulesAPI (5 handlers)
+[GIN-debug] POST   /api/test                 --> packet-repackage/api.TestRule (5 handlers)
+[GIN-debug] GET    /api/logs                 --> packet-repackage/api.ListLogs (5 handlers)
+[GIN-debug] GET    /api/logs/:id             --> packet-repackage/api.GetLog (5 handlers)
+[GIN-debug] DELETE /api/logs                 --> packet-repackage/api.ClearLogs (5 handlers)
+[GIN-debug] GET    /health                   --> main.main.func3 (5 handlers)
+{"level":"info","ts":1770111661.7903247,"caller":"server/main.go:178","msg":"Server listening","addr":":8080"}
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8080
+2026/02/03 17:41:02 NFQ: family=7 version=0
+{"level":"debug","ts":1770111662.4823644,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111662.4831839,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":1,"length":154}
+2026/02/03 17:41:03 NFQ: family=7 version=0
+{"level":"debug","ts":1770111663.4882438,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111663.4893632,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":2,"length":154}
+2026/02/03 17:41:04 NFQ: family=7 version=0
+{"level":"debug","ts":1770111664.4904647,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111664.4906614,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":3,"length":154}
+2026/02/03 17:41:05 NFQ: family=7 version=0
+{"level":"debug","ts":1770111665.4949548,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111665.4955883,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":4,"length":154}
+2026/02/03 17:41:06 NFQ: family=7 version=0
+{"level":"debug","ts":1770111666.4995735,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111666.5000224,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":5,"length":154}
+2026/02/03 17:41:07 NFQ: family=7 version=0
+{"level":"debug","ts":1770111667.5033555,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111667.5033941,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":6,"length":154}
+2026/02/03 17:41:08 NFQ: family=7 version=0
+{"level":"debug","ts":1770111668.5079598,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111668.5085683,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":7,"length":154}
+2026/02/03 17:41:09 NFQ: family=7 version=0
+{"level":"debug","ts":1770111669.5121493,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111669.512953,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":8,"length":154}
+2026/02/03 17:41:10 NFQ: family=7 version=0
+{"level":"debug","ts":1770111670.51475,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111670.515484,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":9,"length":154}
+2026/02/03 17:41:11 NFQ: family=7 version=0
+{"level":"debug","ts":1770111671.517755,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111671.518253,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":10,"length":154}
+2026/02/03 17:41:12 NFQ: family=7 version=0
+{"level":"debug","ts":1770111672.5209677,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111672.521045,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":11,"length":154}
+2026/02/03 17:41:13 NFQ: family=7 version=0
+{"level":"debug","ts":1770111673.5253954,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111673.5255373,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":12,"length":154}
+2026/02/03 17:41:14 NFQ: family=7 version=0
+{"level":"debug","ts":1770111674.5285163,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111674.5290895,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":13,"length":154}
+2026/02/03 17:41:15 NFQ: family=7 version=0
+{"level":"debug","ts":1770111675.5316722,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111675.5323105,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":14,"length":154}
+2026/02/03 17:41:16 NFQ: family=7 version=0
+{"level":"debug","ts":1770111676.534644,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111676.534814,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":15,"length":154}
+2026/02/03 17:41:17 NFQ: family=7 version=0
+{"level":"debug","ts":1770111677.537459,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111677.537494,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":16,"length":154}
+2026/02/03 17:41:18 NFQ: family=7 version=0
+{"level":"debug","ts":1770111678.5402946,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111678.5403337,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":17,"length":154}
+2026/02/03 17:41:19 NFQ: family=7 version=0
+{"level":"debug","ts":1770111679.5433743,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111679.5444272,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":18,"length":154}
+2026/02/03 17:41:20 NFQ: family=7 version=0
+{"level":"debug","ts":1770111680.5466607,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111680.5470245,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":19,"length":154}
+2026/02/03 17:41:21 NFQ: family=7 version=0
+{"level":"debug","ts":1770111681.5495472,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111681.5500984,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":20,"length":154}
+2026/02/03 17:41:22 NFQ: family=7 version=0
+{"level":"debug","ts":1770111682.5526743,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111682.5532057,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":21,"length":154}
+2026/02/03 17:41:23 NFQ: family=7 version=0
+{"level":"debug","ts":1770111683.558845,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111683.5590994,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":22,"length":154}
+2026/02/03 17:41:24 NFQ: family=7 version=0
+{"level":"debug","ts":1770111684.5637307,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111684.563907,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":23,"length":154}
+2026/02/03 17:41:25 NFQ: family=7 version=0
+{"level":"debug","ts":1770111685.5665298,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111685.5668,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":24,"length":154}
+2026/02/03 17:41:26 NFQ: family=7 version=0
+{"level":"debug","ts":1770111686.5696197,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111686.5703173,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":25,"length":154}
+2026/02/03 17:41:27 NFQ: family=7 version=0
+{"level":"debug","ts":1770111687.5723073,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111687.5723517,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":26,"length":154}
+2026/02/03 17:41:28 NFQ: family=7 version=0
+{"level":"debug","ts":1770111688.575701,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111688.5757437,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":27,"length":154}
+2026/02/03 17:41:29 NFQ: family=7 version=0
+{"level":"debug","ts":1770111689.5791087,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111689.579191,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":28,"length":154}
+2026/02/03 17:41:30 NFQ: family=7 version=0
+{"level":"debug","ts":1770111690.5828266,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111690.5829659,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":29,"length":154}
+2026/02/03 17:41:31 NFQ: family=7 version=0
+{"level":"debug","ts":1770111691.5863366,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111691.5863955,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":30,"length":154}
+2026/02/03 17:41:32 NFQ: family=7 version=0
+{"level":"debug","ts":1770111692.5895803,"caller":"nfqueue/handler.go:98","msg":"Callback triggered","has_packet_id":true,"has_payload":true}
+{"level":"debug","ts":1770111692.5897045,"caller":"nfqueue/handler.go:115","msg":"Packet received","packet_id":31,"length":154}
