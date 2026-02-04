@@ -69,6 +69,11 @@ func main() {
 		}
 	}
 
+	// Load configurations into memory
+	if err := nfqueue.ReloadConfig(); err != nil {
+		database.Logger.Error("Failed to load initial configuration", zap.Error(err))
+	}
+
 	// Start NFQueue handler if enabled
 	if !*noQueue {
 		err = nfqueue.Start(queues)
@@ -90,15 +95,15 @@ func main() {
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.Request.URL.Path),
 			zap.String("client_ip", c.ClientIP()))
-		
+
 		c.Next()
-		
+
 		// Log response
 		database.Logger.Info("Request completed",
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.Request.URL.Path),
 			zap.Int("status", c.Writer.Status()))
-		
+
 		// Log errors if any
 		if len(c.Errors) > 0 {
 			for _, err := range c.Errors {
@@ -114,12 +119,12 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
 
@@ -183,7 +188,7 @@ func main() {
 
 func parseQueueDefs(def string) ([]uint16, error) {
 	var queues []uint16
-	
+
 	// Split by comma first
 	parts := strings.Split(def, ",")
 	for _, part := range parts {
@@ -191,28 +196,28 @@ func parseQueueDefs(def string) ([]uint16, error) {
 		if part == "" {
 			continue
 		}
-		
+
 		// Check for range
 		if strings.Contains(part, "-") {
 			rangeParts := strings.Split(part, "-")
 			if len(rangeParts) != 2 {
 				return nil, fmt.Errorf("invalid range format: %s", part)
 			}
-			
+
 			start, err := strconv.ParseUint(strings.TrimSpace(rangeParts[0]), 10, 16)
 			if err != nil {
 				return nil, fmt.Errorf("invalid start of range: %s", rangeParts[0])
 			}
-			
+
 			end, err := strconv.ParseUint(strings.TrimSpace(rangeParts[1]), 10, 16)
 			if err != nil {
 				return nil, fmt.Errorf("invalid end of range: %s", rangeParts[1])
 			}
-			
+
 			if start > end {
 				return nil, fmt.Errorf("invalid range: start %d > end %d", start, end)
 			}
-			
+
 			for i := start; i <= end; i++ {
 				queues = append(queues, uint16(i))
 			}
@@ -225,10 +230,10 @@ func parseQueueDefs(def string) ([]uint16, error) {
 			queues = append(queues, uint16(q))
 		}
 	}
-	
+
 	if len(queues) == 0 {
 		return nil, fmt.Errorf("no valid queues specified")
 	}
-	
+
 	return queues, nil
 }

@@ -8,9 +8,12 @@ import (
 	"packet-repackage/database"
 	"packet-repackage/engine"
 	"packet-repackage/models"
+	"strings"
 	"time"
 
-	nfqueue "github.com/florianl/go-nfqueue"
+	"sync"
+
+	"github.com/florianl/go-nfqueue"
 	"go.uber.org/zap"
 )
 
@@ -21,6 +24,38 @@ type NFQueueManager struct {
 }
 
 var Manager *NFQueueManager
+
+type configCache struct {
+	sync.RWMutex
+	fields []models.Field
+	rules  []models.Rule
+}
+
+var cache = &configCache{}
+
+// ReloadConfig loads fields and enabled rules from the database into memory
+func ReloadConfig() error {
+	var fields []models.Field
+	if err := database.DB.Find(&fields).Error; err != nil {
+		return fmt.Errorf("failed to load fields: %w", err)
+	}
+
+	var rules []models.Rule
+	if err := database.DB.Where("enabled = ?", true).Order("priority DESC").Find(&rules).Error; err != nil {
+		return fmt.Errorf("failed to load rules: %w", err)
+	}
+
+	cache.Lock()
+	cache.fields = fields
+	cache.rules = rules
+	cache.Unlock()
+
+	database.Logger.Info("Configuration reloaded",
+		zap.Int("fields_count", len(fields)),
+		zap.Int("rules_count", len(rules)))
+
+	return nil
+}
 
 // Start initializes and starts the NFQueue packet processing
 func Start(queueNums []uint16) error {
@@ -121,20 +156,21 @@ func handlePacket(attr nfqueue.Attribute, nfq *nfqueue.Nfqueue) int {
 		zap.Uint32("packet_id", packetID),
 		zap.String("5-tuple", ctx.Get5Tuple()))
 
-	database.Logger.Debug("Packet HexDump",
-		zap.Uint32("packet_id", packetID),
-		zap.String("dump", engine.HexDump(rawPacket)))
+	lines := strings.Split(strings.TrimSpace(engine.HexDump(rawPacket)), "\n")
+	for _, line := range lines {
+		database.Logger.Debug("Packet HexDump",
+			zap.Uint32("packet_id", packetID),
+			zap.String("line", line))
+	}
 
-	// Get all fields
-	var fields []models.Field
-	database.DB.Find(&fields)
+	// Get configurations from cache
+	cache.RLock()
+	fields := cache.fields
+	rules := cache.rules
+	cache.RUnlock()
 
 	// Extract field values
 	engine.ExtractAllFields(ctx, fields)
-
-	// Get enabled rules ordered by priority
-	var rules []models.Rule
-	database.DB.Where("enabled = ?", true).Order("priority DESC").Find(&rules)
 
 	// Try to match rules
 	var matchedRule *models.Rule
@@ -184,7 +220,7 @@ func handlePacket(attr nfqueue.Attribute, nfq *nfqueue.Nfqueue) int {
 		}
 
 		// Repackage packet
-		modifiedPacket, err = engine.RepackagePacket(matchedRule.OutputTemplate, ctx, fields)
+		modifiedPacket, err = engine.RepackagePacket(matchedRule.OutputOptions, ctx, fields)
 		if err != nil {
 			database.Logger.Error("Failed to repackage packet",
 				zap.String("rule", matchedRule.Name),

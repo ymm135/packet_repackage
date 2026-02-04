@@ -30,7 +30,7 @@ type TestResponse struct {
 // TestRule tests a rule against a hex packet input
 func TestRule(c *gin.Context) {
 	var req TestRequest
-	
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -92,7 +92,7 @@ func TestRule(c *gin.Context) {
 		// Try to match any enabled rule
 		var rules []models.Rule
 		database.DB.Where("enabled = ?", true).Order("priority DESC").Find(&rules)
-		
+
 		for _, r := range rules {
 			matched, err := engine.EvaluateCondition(r.MatchCondition, ctx, fields)
 			if err != nil {
@@ -155,7 +155,7 @@ func TestRule(c *gin.Context) {
 	}
 
 	// Repackage packet
-	modifiedPacket, err := engine.RepackagePacket(rule.OutputTemplate, ctx, fields)
+	modifiedPacket, err := engine.RepackagePacket(rule.OutputOptions, ctx, fields)
 	if err != nil {
 		response.Error = "Failed to repackage packet: " + err.Error()
 		c.JSON(http.StatusOK, response)

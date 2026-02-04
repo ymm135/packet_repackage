@@ -36,7 +36,10 @@
       <template #header>
         <div class="card-header">
           <span>Packet Modification Rules</span>
-          <el-button type="primary" @click="showRuleDialog()">Add Rule</el-button>
+          <div>
+            <el-button type="success" @click="applyRules" :loading="applying">Apply Rules</el-button>
+            <el-button type="primary" @click="showRuleDialog()">Add Rule</el-button>
+          </div>
         </div>
       </template>
 
@@ -91,7 +94,7 @@
     </el-dialog>
 
     <!-- Rule Dialog -->
-    <el-dialog v-model="ruleDialogVisible" :title="ruleForm.ID ? 'Edit Rule' : 'Add Rule'" width="800px">
+    <el-dialog v-model="ruleDialogVisible" :title="ruleForm.ID ? 'Edit Rule' : 'Add Rule'" width="900px">
       <el-form :model="ruleForm" label-width="150px">
         <el-form-item label="Rule Name">
           <el-input v-model="ruleForm.name" />
@@ -101,34 +104,81 @@
           <el-input-number v-model="ruleForm.priority" :min="0" />
         </el-form-item>
 
-        <el-form-item label="Match Condition">
-          <el-input 
-            v-model="ruleForm.match_condition" 
-            type="textarea" 
-            :rows="3"
-            placeholder='e.g., tagName == "BHB10A01YP01_pmt" && option == "opset"'
+        <el-divider content-position="left">Match Conditions</el-divider>
+        
+        <!-- Visual Condition Builder -->
+        <div v-for="(condition, index) in conditions" :key="index" class="condition-row">
+          <el-select v-model="condition.field" placeholder="Select Field" style="width: 150px">
+            <el-option v-for="field in fields" :key="field.name" :label="field.name" :value="field.name" />
+          </el-select>
+          
+          <el-select v-model="condition.operator" placeholder="Operator" style="width: 100px; margin-left: 10px">
+            <el-option label="==" value="==" />
+            <el-option label="!=" value="!=" />
+            <el-option label=">" value=">" />
+            <el-option label="<" value="<" />
+            <el-option label=">=" value=">=" />
+            <el-option label="<=" value="<=" />
+          </el-select>
+          
+          <el-input v-model="condition.value" placeholder="Value" style="width: 200px; margin-left: 10px" />
+          
+          <el-select v-if="index < conditions.length - 1" v-model="condition.logic" style="width: 80px; margin-left: 10px">
+            <el-option label="AND" value="&&" />
+            <el-option label="OR" value="||" />
+          </el-select>
+          
+          <el-button 
+            v-if="conditions.length > 1" 
+            @click="removeCondition(index)" 
+            type="danger" 
+            size="small" 
+            style="margin-left: 10px"
+            icon="Delete"
           />
-          <div class="form-hint">Use field names with ==, !=, &&, ||, !, ()</div>
-        </el-form-item>
+        </div>
+        
+        <el-button @click="addCondition" type="primary" size="small" style="margin-top: 10px">
+          Add Condition
+        </el-button>
 
-        <el-form-item label="Actions">
-          <el-input 
-            v-model="ruleForm.actions" 
-            type="textarea" 
-            :rows="4"
-            placeholder='[{"field": "tagName", "op": "set", "value": "NewValue"}]'
+        <el-divider content-position="left">Actions</el-divider>
+        
+        <!-- Visual Action Builder -->
+        <div v-for="(action, index) in actions" :key="index" class="action-row">
+          <el-select v-model="action.field" placeholder="Select Field" style="width: 150px">
+            <el-option v-for="field in fields" :key="field.name" :label="field.name" :value="field.name" />
+          </el-select>
+          
+          <el-select v-model="action.op" placeholder="Operation" style="width: 120px; margin-left: 10px">
+            <el-option label="Set" value="set" />
+            <el-option label="Add" value="add" />
+            <el-option label="Subtract" value="sub" />
+            <el-option label="Multiply" value="mul" />
+            <el-option label="Divide" value="div" />
+            <el-option label="Shell" value="shell" />
+          </el-select>
+          
+          <el-input v-model="action.value" placeholder="Value" style="width: 250px; margin-left: 10px" />
+          
+          <el-button 
+            v-if="actions.length > 1" 
+            @click="removeAction(index)" 
+            type="danger" 
+            size="small" 
+            style="margin-left: 10px"
+            icon="Delete"
           />
-          <div class="form-hint">JSON array of actions: set, add, sub, mul, div, shell</div>
-        </el-form-item>
+        </div>
+        
+        <el-button @click="addAction" type="primary" size="small" style="margin-top: 10px">
+          Add Action
+        </el-button>
 
-        <el-form-item label="Output Template">
-          <el-input 
-            v-model="ruleForm.output_template" 
-            type="textarea" 
-            :rows="2"
-            placeholder='e.g., tagName + 0x2e + option'
-          />
-          <div class="form-hint">Field names separated by + with optional hex literals (0xHH)</div>
+        <el-divider content-position="left">Processing Options</el-divider>
+        
+        <el-form-item label="Compute Checksum">
+          <el-checkbox v-model="computeChecksum">Automatically recalculate packet checksum</el-checkbox>
         </el-form-item>
 
         <el-form-item label="Enabled">
@@ -147,11 +197,22 @@
 import { ref, onMounted } from 'vue'
 import { fieldAPI, ruleAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete } from '@element-plus/icons-vue'
 
 const fields = ref([])
 const rules = ref([])
 const fieldDialogVisible = ref(false)
 const ruleDialogVisible = ref(false)
+const applying = ref(false)
+
+// Condition builder
+const conditions = ref([{ field: '', operator: '==', value: '', logic: '&&' }])
+
+// Action builder
+const actions = ref([{ field: '', op: 'set', value: '' }])
+
+// Processing options
+const computeChecksum = ref(true)
 
 const fieldForm = ref({
   name: '',
@@ -165,7 +226,7 @@ const ruleForm = ref({
   priority: 0,
   match_condition: '',
   actions: '',
-  output_template: '',
+  output_options: '',
   enabled: true
 })
 
@@ -199,17 +260,125 @@ const showFieldDialog = (field = null) => {
 const showRuleDialog = (rule = null) => {
   if (rule) {
     ruleForm.value = { ...rule }
+    
+    // Parse existing match condition
+    parseMatchCondition(rule.match_condition)
+    
+    // Parse existing actions
+    parseActions(rule.actions)
+    
+    // Parse output options
+    parseOutputOptions(rule.output_options)
   } else {
     ruleForm.value = {
       name: '',
       priority: 0,
       match_condition: '',
       actions: '',
-      output_template: '',
+      output_options: '',
       enabled: true
     }
+    conditions.value = [{ field: '', operator: '==', value: '', logic: '&&' }]
+    actions.value = [{ field: '', op: 'set', value: '' }]
+    computeChecksum.value = true
   }
   ruleDialogVisible.value = true
+}
+
+const parseMatchCondition = (conditionStr) => {
+  // Simple parser for condition format: field1 == "value1" && field2 == "value2"
+  if (!conditionStr) {
+    conditions.value = [{ field: '', operator: '==', value: '', logic: '&&' }]
+    return
+  }
+  
+  // Split by && or ||
+  const parts = conditionStr.split(/(\s+&&\s+|\s+\|\|\s+)/)
+  const parsed = []
+  
+  for (let i = 0; i < parts.length; i += 2) {
+    const part = parts[i].trim()
+    const match = part.match(/(\w+)\s*(==|!=|>=|<=|>|<)\s*"([^"]*)"/)
+    
+    if (match) {
+      parsed.push({
+        field: match[1],
+        operator: match[2],
+        value: match[3],
+        logic: i + 1 < parts.length ? parts[i + 1].trim() : '&&'
+      })
+    }
+  }
+  
+  conditions.value = parsed.length > 0 ? parsed : [{ field: '', operator: '==', value: '', logic: '&&' }]
+}
+
+const parseActions = (actionsStr) => {
+  if (!actionsStr) {
+    actions.value = [{ field: '', op: 'set', value: '' }]
+    return
+  }
+  
+  try {
+    const parsed = JSON.parse(actionsStr)
+    actions.value = parsed.length > 0 ? parsed : [{ field: '', op: 'set', value: '' }]
+  } catch {
+    actions.value = [{ field: '', op: 'set', value: '' }]
+  }
+}
+
+const parseOutputOptions = (optionsStr) => {
+  if (!optionsStr) {
+    computeChecksum.value = true
+    return
+  }
+  
+  try {
+    const parsed = JSON.parse(optionsStr)
+    computeChecksum.value = parsed.includes('compute_checksum')
+  } catch {
+    computeChecksum.value = true
+  }
+}
+
+const addCondition = () => {
+  conditions.value.push({ field: '', operator: '==', value: '', logic: '&&' })
+}
+
+const removeCondition = (index) => {
+  conditions.value.splice(index, 1)
+}
+
+const addAction = () => {
+  actions.value.push({ field: '', op: 'set', value: '' })
+}
+
+const removeAction = (index) => {
+  actions.value.splice(index, 1)
+}
+
+const buildMatchCondition = () => {
+  return conditions.value
+    .filter(c => c.field && c.value)
+    .map((c, index) => {
+      const cond = `${c.field} ${c.operator} "${c.value}"`
+      return index < conditions.value.length - 1 ? `${cond} ${c.logic}` : cond
+    })
+    .join(' ')
+}
+
+const buildActions = () => {
+  return JSON.stringify(
+    actions.value.filter(a => a.field && a.value)
+  )
+}
+
+const buildOutputOptions = () => {
+  const options = []
+  if (computeChecksum.value) {
+    options.push('compute_checksum')
+  }
+  return JSON.stringify(options)
 }
 
 const saveField = async () => {
@@ -245,15 +414,32 @@ const saveField = async () => {
 
 const saveRule = async () => {
   try {
-    // Validate JSON actions if provided
-    if (ruleForm.value.actions) {
-      JSON.parse(ruleForm.value.actions)
+    // Build condition and actions from UI
+    const matchCondition = buildMatchCondition()
+    const actionsJson = buildActions()
+    const outputOptions = buildOutputOptions()
+    
+    if (!matchCondition) {
+      ElMessage.warning('Please add at least one condition')
+      return
+    }
+    
+    if (!actionsJson || actionsJson === '[]') {
+      ElMessage.warning('Please add at least one action')
+      return
+    }
+
+    const data = {
+      ...ruleForm.value,
+      match_condition: matchCondition,
+      actions: actionsJson,
+      output_options: outputOptions
     }
 
     if (ruleForm.value.ID) {
-      await ruleAPI.update(ruleForm.value.ID, ruleForm.value)
+      await ruleAPI.update(ruleForm.value.ID, data)
     } else {
-      await ruleAPI.create(ruleForm.value)
+      await ruleAPI.create(data)
     }
     
     ElMessage.success('Rule saved successfully')
@@ -300,6 +486,19 @@ const toggleRule = async (id) => {
   }
 }
 
+const applyRules = async () => {
+  applying.value = true
+  try {
+    const { nftRuleAPI } = await import('@/api')
+    await nftRuleAPI.apply()
+    ElMessage.success('Rules applied successfully')
+  } catch (error) {
+    ElMessage.error('Failed to apply rules: ' + error.message)
+  } finally {
+    applying.value = false
+  }
+}
+
 onMounted(() => {
   loadFields()
   loadRules()
@@ -320,6 +519,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.condition-row, .action-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .form-hint {

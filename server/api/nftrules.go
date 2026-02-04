@@ -5,8 +5,10 @@ import (
 	"packet-repackage/database"
 	"packet-repackage/models"
 	"packet-repackage/network"
+	"packet-repackage/nfqueue"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // ListNFTRules returns all NFT rules
@@ -39,7 +41,7 @@ func ListNFTRules(c *gin.Context) {
 func GetNFTRule(c *gin.Context) {
 	id := c.Param("id")
 	var rule models.NFTRule
-	
+
 	result := database.DB.First(&rule, id)
 	if result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Rule not found"})
@@ -52,7 +54,7 @@ func GetNFTRule(c *gin.Context) {
 // CreateNFTRule creates a new NFT rule
 func CreateNFTRule(c *gin.Context) {
 	var rule models.NFTRule
-	
+
 	if err := c.ShouldBindJSON(&rule); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -79,7 +81,7 @@ func CreateNFTRule(c *gin.Context) {
 // UpdateNFTRule updates an existing NFT rule
 func UpdateNFTRule(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	var rule models.NFTRule
 	result := database.DB.First(&rule, id)
 	if result.Error != nil {
@@ -128,7 +130,7 @@ func UpdateNFTRule(c *gin.Context) {
 // DeleteNFTRule deletes an NFT rule
 func DeleteNFTRule(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	result := database.DB.Delete(&models.NFTRule{}, id)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
@@ -146,7 +148,7 @@ func DeleteNFTRule(c *gin.Context) {
 // ToggleNFTRule toggles a rule's enabled status
 func ToggleNFTRule(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	var rule models.NFTRule
 	result := database.DB.First(&rule, id)
 	if result.Error != nil {
@@ -156,7 +158,7 @@ func ToggleNFTRule(c *gin.Context) {
 
 	// Toggle enabled status
 	rule.Enabled = !rule.Enabled
-	
+
 	if err := database.DB.Save(&rule).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle rule: " + err.Error()})
 		return
@@ -168,12 +170,18 @@ func ToggleNFTRule(c *gin.Context) {
 	})
 }
 
-// ApplyNFTRules applies all enabled rules to nftables
+// ApplyNFTRules applies all enabled rules to nftables and reloads repackage rules
 func ApplyNFTRulesAPI(c *gin.Context) {
 	err := network.ApplyNFTRules(database.DB)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to apply rules: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to apply NFT rules: " + err.Error()})
 		return
+	}
+
+	// Also reload repackage rules in memory
+	if err := nfqueue.ReloadConfig(); err != nil {
+		database.Logger.Error("Failed to reload repackage rules", zap.Error(err))
+		// Don't fail the whole request, but log the error
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Rules applied successfully"})

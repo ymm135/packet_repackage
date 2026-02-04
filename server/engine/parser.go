@@ -54,13 +54,29 @@ func (ctx *PacketContext) Get5Tuple() string {
 
 // ParsePacket parses a raw packet and extracts basic layers
 func ParsePacket(rawPacket []byte) (*PacketContext, error) {
-	packet := gopacket.NewPacket(rawPacket, layers.LayerTypeEthernet, gopacket.Default)
+	if len(rawPacket) == 0 {
+		return nil, fmt.Errorf("empty packet")
+	}
 
 	ctx := &PacketContext{
 		RawPacket: rawPacket,
 		Fields:    make(map[string]interface{}),
-		Packet:    packet,
 	}
+
+	// Try to determine if it's Ethernet or IP
+	// IPv4 starts with 0x45-0x4f (version 4)
+	// IPv6 starts with 0x6x (version 6)
+	var packet gopacket.Packet
+	version := rawPacket[0] >> 4
+	if version == 4 {
+		packet = gopacket.NewPacket(rawPacket, layers.LayerTypeIPv4, gopacket.Default)
+	} else if version == 6 {
+		packet = gopacket.NewPacket(rawPacket, layers.LayerTypeIPv6, gopacket.Default)
+	} else {
+		packet = gopacket.NewPacket(rawPacket, layers.LayerTypeEthernet, gopacket.Default)
+	}
+
+	ctx.Packet = packet
 
 	// Extract common layers
 	if etherLayer := packet.Layer(layers.LayerTypeEthernet); etherLayer != nil {
@@ -237,7 +253,43 @@ func CompareFieldValue(actual interface{}, expected string, fieldType string) bo
 	}
 }
 
-// HexDump generates a classic hex and ASCII dump of the data
+// HexDump generates a custom hex and ASCII dump matching Wireshark style
 func HexDump(data []byte) string {
-	return hex.Dump(data)
+	var sb strings.Builder
+	for i := 0; i < len(data); i += 16 {
+		// 1. Offset (4 hex digits)
+		sb.WriteString(fmt.Sprintf("%04x  ", i))
+
+		// 2. Hex values (16 bytes, with extra space after 8th byte)
+		for j := 0; j < 16; j++ {
+			if i+j < len(data) {
+				sb.WriteString(fmt.Sprintf("%02x ", data[i+j]))
+			} else {
+				sb.WriteString("   ")
+			}
+			if j == 7 {
+				sb.WriteString(" ")
+			}
+		}
+
+		// 3. Large spacer before ASCII
+		sb.WriteString("  ")
+
+		// 4. ASCII representation
+		for j := 0; j < 16; j++ {
+			if i+j < len(data) {
+				b := data[i+j]
+				// Show printable characters, use dot otherwise
+				if b >= 32 && b <= 126 {
+					sb.WriteByte(b)
+				} else {
+					sb.WriteByte('.')
+				}
+			} else {
+				sb.WriteByte(' ')
+			}
+		}
+		sb.WriteByte('\n')
+	}
+	return sb.String()
 }

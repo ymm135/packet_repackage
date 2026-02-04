@@ -10,8 +10,8 @@ import (
 type Field struct {
 	gorm.Model
 	Name   string `gorm:"uniqueIndex;not null" json:"name"`
-	Offset int    `gorm:"not null" json:"offset"`           // Starting offset in bytes (can be hex like 0x58)
-	Length int    `gorm:"not null" json:"length"`           // Field length in bytes
+	Offset int    `gorm:"not null" json:"offset"`             // Starting offset in bytes (can be hex like 0x58)
+	Length int    `gorm:"not null" json:"length"`             // Field length in bytes
 	Type   string `gorm:"not null;default:'hex'" json:"type"` // hex, decimal, string, or builtin (for 5-tuple)
 }
 
@@ -22,7 +22,7 @@ type Rule struct {
 	Enabled        bool   `gorm:"default:true" json:"enabled"`
 	MatchCondition string `gorm:"type:text" json:"match_condition"` // Expression like: tagName == "BHB10A01YP01_pmt" && option == "opset"
 	Actions        string `gorm:"type:text" json:"actions"`         // JSON array of actions like: [{"field": "tagName", "op": "set", "value": "BHB10A01YP01"}]
-	OutputTemplate string `gorm:"type:text" json:"output_template"` // Template like: "tagName + 0x2e + option"
+	OutputOptions  string `gorm:"type:text" json:"output_options"`  // JSON array of processing options like: ["compute_checksum"]
 	Priority       int    `gorm:"default:0" json:"priority"`        // Higher priority rules evaluated first
 }
 
@@ -39,14 +39,14 @@ type InterfaceConfig struct {
 // VlanConfig represents VLAN interface configuration
 type VlanConfig struct {
 	gorm.Model
-	OutInterface      string             `gorm:"uniqueIndex;not null" json:"out_interface"` // vlan_X interface name
-	VlanId            int                `gorm:"not null" json:"vlan_id"`
-	NickName          string             `json:"nick_name"`
-	Type              string             `gorm:"default:'2'" json:"type"`      // 1=route, 2=transparent
-	PhysicalInterface string             `json:"physical_interface"`           // Comma-separated physical interfaces
-	Status            int                `gorm:"default:1" json:"status"`      // 1=up, 0=down
-	IsManager         int                `gorm:"default:0" json:"is_manager"`  // 0=normal, 1=management
-	VlanConfigArray   []VlanConfigIP     `gorm:"foreignKey:OutInterface;references:OutInterface" json:"vlan_config_array"`
+	OutInterface      string         `gorm:"uniqueIndex;not null" json:"out_interface"` // vlan_X interface name
+	VlanId            int            `gorm:"not null" json:"vlan_id"`
+	NickName          string         `json:"nick_name"`
+	Type              string         `gorm:"default:'2'" json:"type"`     // 1=route, 2=transparent
+	PhysicalInterface string         `json:"physical_interface"`          // Comma-separated physical interfaces
+	Status            int            `gorm:"default:1" json:"status"`     // 1=up, 0=down
+	IsManager         int            `gorm:"default:0" json:"is_manager"` // 0=normal, 1=management
+	VlanConfigArray   []VlanConfigIP `gorm:"foreignKey:OutInterface;references:OutInterface" json:"vlan_config_array"`
 }
 
 // VlanConfigIP represents IP addresses assigned to VLAN interfaces
@@ -60,14 +60,14 @@ type VlanConfigIP struct {
 // ProcessLog represents a packet processing log entry
 type ProcessLog struct {
 	gorm.Model
-	RuleID          uint      `gorm:"index" json:"rule_id"`
-	RuleName        string    `json:"rule_name"`
-	OriginalPacket  string    `gorm:"type:text" json:"original_packet"`  // Hex string
-	ModifiedPacket  string    `gorm:"type:text" json:"modified_packet"`  // Hex string
-	FieldValues     string    `gorm:"type:text" json:"field_values"`     // JSON object with before/after values
-	Result          string    `json:"result"`                            // success, error, dropped
-	ErrorMessage    string    `gorm:"type:text" json:"error_message"`
-	ProcessedAt     time.Time `gorm:"index" json:"processed_at"`
+	RuleID         uint      `gorm:"index" json:"rule_id"`
+	RuleName       string    `json:"rule_name"`
+	OriginalPacket string    `gorm:"type:text" json:"original_packet"` // Hex string
+	ModifiedPacket string    `gorm:"type:text" json:"modified_packet"` // Hex string
+	FieldValues    string    `gorm:"type:text" json:"field_values"`    // JSON object with before/after values
+	Result         string    `json:"result"`                           // success, error, dropped
+	ErrorMessage   string    `gorm:"type:text" json:"error_message"`
+	ProcessedAt    time.Time `gorm:"index" json:"processed_at"`
 }
 
 // NFTRule represents an nftables firewall rule
@@ -78,11 +78,11 @@ type NFTRule struct {
 	Priority int    `gorm:"default:100" json:"priority"` // Lower = higher priority
 
 	// 5-Tuple filtering (empty = any)
-	SrcIP    string `json:"src_ip"`    // Source IP/CIDR, e.g., "192.168.1.0/24"
-	DstIP    string `json:"dst_ip"`    // Destination IP/CIDR
-	SrcPort  string `json:"src_port"`  // Source port or range, e.g., "80" or "1024-65535"
-	DstPort  string `json:"dst_port"`  // Destination port or range
-	Protocol string `json:"protocol"`  // tcp/udp/icmp/any (empty = any)
+	SrcIP    string `json:"src_ip"`   // Source IP/CIDR, e.g., "192.168.1.0/24"
+	DstIP    string `json:"dst_ip"`   // Destination IP/CIDR
+	SrcPort  string `json:"src_port"` // Source port or range, e.g., "80" or "1024-65535"
+	DstPort  string `json:"dst_port"` // Destination port or range
+	Protocol string `json:"protocol"` // tcp/udp/icmp/any (empty = any)
 
 	// Logging
 	LogEnabled bool   `gorm:"default:false" json:"log_enabled"`

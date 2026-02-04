@@ -2,70 +2,147 @@ package engine
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"packet-repackage/models"
-	"regexp"
-	"strconv"
-	"strings"
+	"sort"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )
 
-// RepackagePacket rebuilds the packet based on output template
-// Template format: "field1 + 0xHH + field2" where fields are replaced with their values
-func RepackagePacket(template string, ctx *PacketContext, fields []models.Field) ([]byte, error) {
-	if strings.TrimSpace(template) == "" {
-		// No template, return original packet
+// FieldSegment represents a segment of the packet (either user-defined or built-in)
+type FieldSegment struct {
+	Offset      int
+	Length      int
+	IsUserField bool
+	FieldName   string // Empty for built-in fields
+	Field       *models.Field
+}
+
+// RepackagePacket rebuilds the packet by preserving built-in fields and updating user-defined fields
+func RepackagePacket(outputOptions string, ctx *PacketContext, fields []models.Field) ([]byte, error) {
+	if len(fields) == 0 {
+		// No fields defined, return original packet
 		return ctx.RawPacket, nil
 	}
 
-	// Build field map
-	fieldMap := make(map[string]models.Field)
-	for _, f := range fields {
-		fieldMap[f.Name] = f
-	}
+	// Extract built-in fields (gaps between user-defined fields)
+	segments := extractFieldSegments(ctx.RawPacket, fields)
 
-	// Parse template and build new packet
-	parts := strings.Split(template, "+")
-	var outputBytes []byte
+	// Reassemble packet with modified user fields and preserved built-in fields
+	reassembled := reassemblePacket(ctx.RawPacket, segments, ctx)
 
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-
-		// Check if it's a hex literal (0xHH format)
-		if strings.HasPrefix(part, "0x") {
-			hexStr := strings.TrimPrefix(part, "0x")
-			bytes, err := hex.DecodeString(hexStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid hex literal %s: %w", part, err)
-			}
-			outputBytes = append(outputBytes, bytes...)
-			continue
-		}
-
-		// Check if it's a field name
-		if field, exists := fieldMap[part]; exists {
-			value := ctx.Fields[part]
-			bytes, err := valueToBytes(value, field)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert field %s to bytes: %w", part, err)
-			}
-			outputBytes = append(outputBytes, bytes...)
-			continue
-		}
-
-		// Try as literal string
-		outputBytes = append(outputBytes, []byte(part)...)
-	}
-
-	// Recalculate checksums if necessary
-	outputBytes, err := recalculateChecksums(outputBytes, ctx)
+	// Apply output options (e.g., compute checksum)
+	result, err := applyOutputOptions(reassembled, outputOptions, ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to recalculate checksums: %w", err)
+		return nil, fmt.Errorf("failed to apply output options: %w", err)
 	}
 
-	return outputBytes, nil
+	return result, nil
+}
+
+// extractFieldSegments analyzes the packet and creates an ordered list of all field segments
+func extractFieldSegments(rawPacket []byte, userFields []models.Field) []FieldSegment {
+	var segments []FieldSegment
+
+	// Sort user fields by offset
+	sortedFields := make([]models.Field, len(userFields))
+	copy(sortedFields, userFields)
+	sort.Slice(sortedFields, func(i, j int) bool {
+		return sortedFields[i].Offset < sortedFields[j].Offset
+	})
+
+	currentOffset := 0
+	packetLen := len(rawPacket)
+
+	for _, field := range sortedFields {
+		// Add built-in field before this user field (if there's a gap)
+		if currentOffset < field.Offset {
+			segments = append(segments, FieldSegment{
+				Offset:      currentOffset,
+				Length:      field.Offset - currentOffset,
+				IsUserField: false,
+			})
+		}
+
+		// Add user-defined field
+		fieldCopy := field
+		segments = append(segments, FieldSegment{
+			Offset:      field.Offset,
+			Length:      field.Length,
+			IsUserField: true,
+			FieldName:   field.Name,
+			Field:       &fieldCopy,
+		})
+
+		currentOffset = field.Offset + field.Length
+	}
+
+	// Add trailing built-in field (if any bytes remain)
+	if currentOffset < packetLen {
+		segments = append(segments, FieldSegment{
+			Offset:      currentOffset,
+			Length:      packetLen - currentOffset,
+			IsUserField: false,
+		})
+	}
+
+	return segments
+}
+
+// reassemblePacket reconstructs the packet from segments
+func reassemblePacket(rawPacket []byte, segments []FieldSegment, ctx *PacketContext) []byte {
+	var output []byte
+
+	for _, segment := range segments {
+		if segment.IsUserField {
+			// Use modified value from context
+			value := ctx.Fields[segment.FieldName]
+			bytes, err := valueToBytes(value, *segment.Field)
+			if err != nil {
+				// Fallback to original bytes on error
+				output = append(output, rawPacket[segment.Offset:segment.Offset+segment.Length]...)
+			} else {
+				output = append(output, bytes...)
+			}
+		} else {
+			// Preserve original bytes for built-in fields
+			endOffset := segment.Offset + segment.Length
+			if endOffset <= len(rawPacket) {
+				output = append(output, rawPacket[segment.Offset:endOffset]...)
+			}
+		}
+	}
+
+	return output
+}
+
+// applyOutputOptions processes output options like checksum computation
+func applyOutputOptions(packetData []byte, optionsJSON string, ctx *PacketContext) ([]byte, error) {
+	if optionsJSON == "" {
+		return packetData, nil
+	}
+
+	var options []string
+	err := json.Unmarshal([]byte(optionsJSON), &options)
+	if err != nil {
+		// If not valid JSON, treat as no options
+		return packetData, nil
+	}
+
+	result := packetData
+	for _, option := range options {
+		switch option {
+		case "compute_checksum":
+			result, err = recalculateChecksums(result, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to compute checksum: %w", err)
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func valueToBytes(value interface{}, field models.Field) ([]byte, error) {
@@ -93,12 +170,11 @@ func valueToBytes(value interface{}, field models.Field) ([]byte, error) {
 			intVal = v
 		case int:
 			intVal = int64(v)
+		case float64:
+			intVal = int64(v)
 		case string:
-			parsed, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			intVal = parsed
+			// Try to parse as integer
+			fmt.Sscanf(v, "%d", &intVal)
 		default:
 			return nil, fmt.Errorf("unsupported type for decimal: %T", value)
 		}
@@ -153,51 +229,51 @@ func recalculateChecksums(packetData []byte, ctx *PacketContext) ([]byte, error)
 	// Get layers and serialize with checksum computation
 	if etherLayer := packet.Layer(layers.LayerTypeEthernet); etherLayer != nil {
 		eth := etherLayer.(*layers.Ethernet)
-		
+
 		if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
 			ip := ipLayer.(*layers.IPv4)
-			
+
 			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 				tcp := tcpLayer.(*layers.TCP)
 				tcp.SetNetworkLayerForChecksum(ip)
-				
+
 				payload := packet.ApplicationLayer()
 				var payloadBytes []byte
 				if payload != nil {
 					payloadBytes = payload.Payload()
 				}
-				
+
 				err := gopacket.SerializeLayers(buffer, opts, eth, ip, tcp, gopacket.Payload(payloadBytes))
 				if err != nil {
 					return nil, err
 				}
 				return buffer.Bytes(), nil
 			}
-			
+
 			if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
 				udp := udpLayer.(*layers.UDP)
 				udp.SetNetworkLayerForChecksum(ip)
-				
+
 				payload := packet.ApplicationLayer()
 				var payloadBytes []byte
 				if payload != nil {
 					payloadBytes = payload.Payload()
 				}
-				
+
 				err := gopacket.SerializeLayers(buffer, opts, eth, ip, udp, gopacket.Payload(payloadBytes))
 				if err != nil {
 					return nil, err
 				}
 				return buffer.Bytes(), nil
 			}
-			
+
 			// IP packet without TCP/UDP
 			payload := packet.ApplicationLayer()
 			var payloadBytes []byte
 			if payload != nil {
 				payloadBytes = payload.Payload()
 			}
-			
+
 			err := gopacket.SerializeLayers(buffer, opts, eth, ip, gopacket.Payload(payloadBytes))
 			if err != nil {
 				return nil, err
@@ -208,52 +284,4 @@ func recalculateChecksums(packetData []byte, ctx *PacketContext) ([]byte, error)
 
 	// If we can't parse as IP packet, return as-is
 	return packetData, nil
-}
-
-// BuildOutputFromTemplate is a helper that parses template and generates output
-// This handles more complex templates with field references
-func BuildOutputFromTemplate(template string, ctx *PacketContext) ([]byte, error) {
-	// Simple regex to find field references and hex literals
-	fieldRegex := regexp.MustCompile(`\{(\w+)\}`)
-	hexRegex := regexp.MustCompile(`0x([0-9a-fA-F]+)`)
-	
-	var output []byte
-	remaining := template
-	
-	for len(remaining) > 0 {
-		// Find next field reference
-		fieldMatch := fieldRegex.FindStringIndex(remaining)
-		hexMatch := hexRegex.FindStringIndex(remaining)
-		
-		// Determine which comes first
-		if fieldMatch != nil && (hexMatch == nil || fieldMatch[0] < hexMatch[0]) {
-			// Add literal text before field reference
-			output = append(output, []byte(remaining[:fieldMatch[0]])...)
-			
-			// Extract field name and value
-			fieldName := remaining[fieldMatch[0]+1:fieldMatch[1]-1]
-			if value, exists := ctx.Fields[fieldName]; exists {
-				// Convert value to bytes (simplified)
-				output = append(output, []byte(fmt.Sprintf("%v", value))...)
-			}
-			
-			remaining = remaining[fieldMatch[1]:]
-		} else if hexMatch != nil {
-			// Add literal text before hex
-			output = append(output, []byte(remaining[:hexMatch[0]])...)
-			
-			// Decode hex
-			hexStr := remaining[hexMatch[0]+2:hexMatch[1]]
-			bytes, _ := hex.DecodeString(hexStr)
-			output = append(output, bytes...)
-			
-			remaining = remaining[hexMatch[1]:]
-		} else {
-			// No more matches, add remaining text
-			output = append(output, []byte(remaining)...)
-			break
-		}
-	}
-	
-	return output, nil
 }

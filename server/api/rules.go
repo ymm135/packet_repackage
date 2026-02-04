@@ -19,19 +19,19 @@ func ListRules(c *gin.Context) {
 func GetRule(c *gin.Context) {
 	id := c.Param("id")
 	var rule models.Rule
-	
+
 	if err := database.DB.First(&rule, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Rule not found"})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"data": rule})
 }
 
 // CreateRule creates a new rule
 func CreateRule(c *gin.Context) {
 	var rule models.Rule
-	
+
 	if err := c.ShouldBindJSON(&rule); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -49,7 +49,7 @@ func CreateRule(c *gin.Context) {
 func UpdateRule(c *gin.Context) {
 	id := c.Param("id")
 	var rule models.Rule
-	
+
 	if err := database.DB.First(&rule, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Rule not found"})
 		return
@@ -66,7 +66,7 @@ func UpdateRule(c *gin.Context) {
 	rule.Enabled = updates.Enabled
 	rule.MatchCondition = updates.MatchCondition
 	rule.Actions = updates.Actions
-	rule.OutputTemplate = updates.OutputTemplate
+	rule.OutputOptions = updates.OutputOptions
 	rule.Priority = updates.Priority
 
 	if err := database.DB.Save(&rule).Error; err != nil {
@@ -80,7 +80,7 @@ func UpdateRule(c *gin.Context) {
 // DeleteRule deletes a rule
 func DeleteRule(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	if err := database.DB.Delete(&models.Rule{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -93,14 +93,14 @@ func DeleteRule(c *gin.Context) {
 func ToggleRule(c *gin.Context) {
 	id := c.Param("id")
 	var rule models.Rule
-	
+
 	if err := database.DB.First(&rule, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Rule not found"})
 		return
 	}
 
 	rule.Enabled = !rule.Enabled
-	
+
 	if err := database.DB.Save(&rule).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
