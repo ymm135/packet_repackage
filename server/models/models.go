@@ -68,6 +68,13 @@ type ProcessLog struct {
 	Result         string    `json:"result"`                           // success, error, dropped
 	ErrorMessage   string    `gorm:"type:text" json:"error_message"`
 	ProcessedAt    time.Time `gorm:"index" json:"processed_at"`
+
+	// 5-Tuple info
+	SrcIP    string `json:"src_ip"`
+	DstIP    string `json:"dst_ip"`
+	SrcPort  int    `json:"src_port"`
+	DstPort  int    `json:"dst_port"`
+	Protocol string `json:"protocol"`
 }
 
 // NFTRule represents an nftables firewall rule

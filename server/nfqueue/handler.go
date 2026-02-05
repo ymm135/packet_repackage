@@ -74,7 +74,7 @@ func Start(queueNums []uint16) error {
 			MaxQueueLen:  0xFF,
 			Copymode:     nfqueue.NfQnlCopyPacket,
 			WriteTimeout: 100 * time.Millisecond,
-			AfFamily:     7, // AF_BRIDGE (patched library now supports this)
+			AfFamily:     2, // AF_INET - more reliable than AF_BRIDGE which can have nil PacketID issues
 		}
 
 		nfq, err := nfqueue.Open(&config)
@@ -130,11 +130,23 @@ func Stop() error {
 
 // handlePacket processes each packet from the queue
 func handlePacket(attr nfqueue.Attribute, nfq *nfqueue.Nfqueue) int {
-	if attr.PacketID == nil || attr.Payload == nil {
-		if attr.PacketID != nil {
-			database.Logger.Warn("Received packet with nil payload", zap.Uint32("packet_id", *attr.PacketID))
-			nfq.SetVerdict(*attr.PacketID, nfqueue.NfAccept)
+	// Critical: In AF_BRIDGE mode, PacketID can sometimes be nil even when Payload is present
+	// This appears to be a known issue with the nfqueue library when using bridge netfilter
+	// Without a PacketID, we cannot issue a verdict, so we must skip processing
+	if attr.PacketID == nil {
+		if attr.Payload != nil {
+			database.Logger.Warn("Received packet with nil PacketID but valid payload - AF_BRIDGE mode issue",
+				zap.Int("payload_len", len(*attr.Payload)),
+				zap.Any("indev", attr.InDev),
+				zap.Any("outdev", attr.OutDev))
 		}
+		// Cannot process without PacketID - return and let kernel handle it
+		return 0
+	}
+
+	if attr.Payload == nil {
+		database.Logger.Warn("Received packet with nil payload", zap.Uint32("packet_id", *attr.PacketID))
+		nfq.SetVerdict(*attr.PacketID, nfqueue.NfAccept)
 		return 0
 	}
 
@@ -194,6 +206,22 @@ func handlePacket(attr nfqueue.Attribute, nfq *nfqueue.Nfqueue) int {
 	logEntry := models.ProcessLog{
 		ProcessedAt:    time.Now(),
 		OriginalPacket: hex.EncodeToString(rawPacket),
+	}
+
+	// Populate 5-tuple info
+	if ctx.IPv4Layer != nil {
+		logEntry.SrcIP = ctx.IPv4Layer.SrcIP.String()
+		logEntry.DstIP = ctx.IPv4Layer.DstIP.String()
+		logEntry.Protocol = ctx.IPv4Layer.Protocol.String()
+	}
+	if ctx.TCPLayer != nil {
+		logEntry.SrcPort = int(ctx.TCPLayer.SrcPort)
+		logEntry.DstPort = int(ctx.TCPLayer.DstPort)
+		logEntry.Protocol = "TCP"
+	} else if ctx.UDPLayer != nil {
+		logEntry.SrcPort = int(ctx.UDPLayer.SrcPort)
+		logEntry.DstPort = int(ctx.UDPLayer.DstPort)
+		logEntry.Protocol = "UDP"
 	}
 
 	if matchedRule != nil {

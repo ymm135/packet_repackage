@@ -3,10 +3,29 @@
     <div class="hex-display">
       <table>
         <tbody>
-          <tr v-for="(line, index) in lines" :key="index">
-            <td class="offset">{{ formatOffset(index * 16) }}</td>
-            <td class="hex-bytes">{{ line.hex }}</td>
-            <td class="ascii">{{ line.ascii }}</td>
+          <tr v-for="(line, lineIndex) in lines" :key="lineIndex">
+            <td class="offset">{{ formatOffset(lineIndex * 16) }}</td>
+            <td class="hex-bytes">
+              <span 
+                v-for="(item, itemIndex) in line.bytes" 
+                :key="itemIndex"
+                class="byte-item"
+                :class="{ 
+                  selected: selectedIndex === item.globalIndex,
+                  gap: itemIndex > 0 && itemIndex % 2 === 0 
+                }"
+                @click="selectIndex(item.globalIndex)"
+              >{{ item.hex }}</span>
+            </td>
+            <td class="ascii">
+              <span 
+                v-for="(item, itemIndex) in line.bytes" 
+                :key="itemIndex"
+                class="ascii-item"
+                :class="{ selected: selectedIndex === item.globalIndex }"
+                @click="selectIndex(item.globalIndex)"
+              >{{ item.ascii }}</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -15,7 +34,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   hex: {
@@ -24,35 +43,40 @@ const props = defineProps({
   }
 })
 
+const selectedIndex = ref(-1)
+
+const selectIndex = (index) => {
+  selectedIndex.value = index
+}
+
 const lines = computed(() => {
   const hexStr = props.hex.replace(/\s/g, '')
   const result = []
   
+  let globalIndex = 0
+  
   for (let i = 0; i < hexStr.length; i += 32) {
     const hexChunk = hexStr.substring(i, i + 32)
     const bytes = []
-    const ascii = []
     
     for (let j = 0; j < hexChunk.length; j += 2) {
-      const byte = hexChunk.substring(j, j + 2)
-      bytes.push(byte)
+      const hexByte = hexChunk.substring(j, j + 2)
       
       // Convert to ASCII
-      const charCode = parseInt(byte, 16)
+      const charCode = parseInt(hexByte, 16)
+      let asciiChar = '.'
       if (charCode >= 32 && charCode <= 126) {
-        ascii.push(String.fromCharCode(charCode))
-      } else {
-        ascii.push('.')
+        asciiChar = String.fromCharCode(charCode)
       }
+      
+      bytes.push({
+        hex: hexByte,
+        ascii: asciiChar,
+        globalIndex: globalIndex++
+      })
     }
     
-    // Format hex bytes with spaces every 2 bytes
-    const hexFormatted = bytes.join(' ')
-    
-    result.push({
-      hex: hexFormatted.padEnd(47, ' '), // 16 bytes * 3 - 1
-      ascii: ascii.join('')
-    })
+    result.push({ bytes })
   }
   
   return result
@@ -84,16 +108,38 @@ const formatOffset = (offset) => {
   padding-right: 15px;
   text-align: right;
   user-select: none;
+  vertical-align: top;
 }
 
 .hex-bytes {
   color: #9cdcfe;
   padding-right: 20px;
   font-weight: 500;
+  vertical-align: top;
 }
 
 .ascii {
   color: #ce9178;
+  vertical-align: top;
+}
+
+.byte-item, .ascii-item {
+  display: inline-block;
+  cursor: pointer;
+  padding: 0 1px;
+}
+
+.byte-item:hover, .ascii-item:hover {
+  background-color: #3a3d41;
+}
+
+.byte-item.selected, .ascii-item.selected {
+  background-color: #264f78; /* VS Code text selection color */
+  color: #ffffff;
+}
+
+.byte-item.gap {
+  margin-left: 8px; /* Space between every 2 bytes */
 }
 
 td {

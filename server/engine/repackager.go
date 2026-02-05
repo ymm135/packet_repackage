@@ -160,8 +160,9 @@ func valueToBytes(value interface{}, field models.Field) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Pad or truncate to field length
-		return padOrTruncate(bytes, field.Length), nil
+		// Return actual bytes without padding/truncating
+		// This allows the field to be any length when set
+		return bytes, nil
 
 	case "decimal":
 		var intVal int64
@@ -178,6 +179,8 @@ func valueToBytes(value interface{}, field models.Field) ([]byte, error) {
 		default:
 			return nil, fmt.Errorf("unsupported type for decimal: %T", value)
 		}
+		// For decimal, we still use field.Length as the base
+		// but allow the value to dictate the actual size
 		return intToBytes(intVal, field.Length), nil
 
 	case "string":
@@ -185,8 +188,9 @@ func valueToBytes(value interface{}, field models.Field) ([]byte, error) {
 		if !ok {
 			strVal = fmt.Sprintf("%v", value)
 		}
-		bytes := []byte(strVal)
-		return padOrTruncate(bytes, field.Length), nil
+		// Return actual string bytes without padding/truncating
+		// This allows variable-length strings
+		return []byte(strVal), nil
 
 	default:
 		return nil, fmt.Errorf("unknown field type: %s", field.Type)

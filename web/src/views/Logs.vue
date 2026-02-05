@@ -92,6 +92,15 @@
           </el-descriptions-item>
         </el-descriptions>
 
+        <div class="detail-section" v-if="selectedLog.src_ip">
+            <h4>5-Tuple Info:</h4>
+            <el-descriptions :column="2" border>
+                <el-descriptions-item label="Source">{{ selectedLog.src_ip }}:{{ selectedLog.src_port }}</el-descriptions-item>
+                <el-descriptions-item label="Destination">{{ selectedLog.dst_ip }}:{{ selectedLog.dst_port }}</el-descriptions-item>
+                <el-descriptions-item label="Protocol">{{ selectedLog.protocol }}</el-descriptions-item>
+            </el-descriptions>
+        </div>
+
         <div class="detail-section">
           <h4>Field Values:</h4>
           <el-table v-if="selectedLog.field_values" :data="formatFieldValues(selectedLog.field_values)" border>

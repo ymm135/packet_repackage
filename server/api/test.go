@@ -25,6 +25,13 @@ type TestResponse struct {
 	ModifiedPacket  string                 `json:"modified_packet"`
 	ProcessingSteps []string               `json:"processing_steps"`
 	Error           string                 `json:"error,omitempty"`
+
+	// 5-Tuple info
+	SrcIP    string `json:"src_ip"`
+	DstIP    string `json:"dst_ip"`
+	SrcPort  int    `json:"src_port"`
+	DstPort  int    `json:"dst_port"`
+	Protocol string `json:"protocol"`
 }
 
 // TestRule tests a rule against a hex packet input
@@ -58,6 +65,22 @@ func TestRule(c *gin.Context) {
 		return
 	}
 	response.ProcessingSteps = append(response.ProcessingSteps, "Packet parsed successfully")
+
+	// Populate 5-tuple info
+	if ctx.IPv4Layer != nil {
+		response.SrcIP = ctx.IPv4Layer.SrcIP.String()
+		response.DstIP = ctx.IPv4Layer.DstIP.String()
+		response.Protocol = ctx.IPv4Layer.Protocol.String()
+	}
+	if ctx.TCPLayer != nil {
+		response.SrcPort = int(ctx.TCPLayer.SrcPort)
+		response.DstPort = int(ctx.TCPLayer.DstPort)
+		response.Protocol = "TCP"
+	} else if ctx.UDPLayer != nil {
+		response.SrcPort = int(ctx.UDPLayer.SrcPort)
+		response.DstPort = int(ctx.UDPLayer.DstPort)
+		response.Protocol = "UDP"
+	}
 
 	// Get all fields
 	var fields []models.Field

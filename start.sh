@@ -39,6 +39,21 @@ for arg in "$@"; do
 done
 
 
+# Check and enable br_netfilter module
+if [ "$EUID" -eq 0 ]; then
+    echo "Loading br_netfilter module..."
+    modprobe br_netfilter || echo "Warning: Failed to load br_netfilter module"
+    
+    if [ -f "/proc/sys/net/bridge/bridge-nf-call-iptables" ]; then
+        if [ "$(sysctl -n net.bridge.bridge-nf-call-iptables)" -ne 1 ]; then
+            echo "Enabling bridge-nf-call-iptables..."
+            sysctl -w net.bridge.bridge-nf-call-iptables=1
+        fi
+    else
+        echo "Warning: /proc/sys/net/bridge/bridge-nf-call-iptables not found. Bridge traffic may not be intercepted."
+    fi
+fi
+
 # Check and enable IP IP forwarding if running as root
 if [ "$EUID" -eq 0 ]; then
     if [ "$(sysctl -n net.ipv4.ip_forward)" -ne 1 ]; then

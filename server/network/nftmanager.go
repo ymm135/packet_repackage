@@ -40,7 +40,7 @@ func ApplyNFTRules(db *gorm.DB) error {
 	successCount := 0
 	for _, rule := range rules {
 		cmd := BuildNFTCommand(rule)
-		database.Logger.Info("Applying rule", 
+		database.Logger.Info("Applying rule",
 			zap.String("name", rule.Name),
 			zap.String("command", cmd))
 
@@ -66,15 +66,17 @@ func EnsureNFTInfrastructure() error {
 	database.Logger.Info("Ensuring NFTables infrastructure exists")
 
 	// Try to create table (ignore error if exists)
-	// Remove old IP table if exists to avoid confusion
-	_ = command.GoLinuxShell("nft delete table ip netvine-table")
+	// Remove old BRIDGE table if exists to avoid confusion and ensure we use IP table
+	_ = command.GoLinuxShell("nft delete table bridge netvine-table")
 
 	// Try to create table (ignore error if exists)
-	cmd := "nft add table bridge netvine-table"
+	// We use 'table ip' instead of 'table bridge' to work around the nil PacketID issue in AF_BRIDGE
+	// Since net.bridge.bridge-nf-call-iptables=1, bridged IP traffic will traverse this table
+	cmd := "nft add table ip netvine-table"
 	_ = command.GoLinuxShell(cmd) // Ignore error, table might exist
 
 	// Try to create chain (ignore error if exists)
-	cmd = "nft add chain bridge netvine-table base-rule-chain { type filter hook forward priority 0\\; policy accept\\; }"
+	cmd = "nft add chain ip netvine-table base-rule-chain { type filter hook forward priority 0\\; policy accept\\; }"
 	_ = command.GoLinuxShell(cmd) // Ignore error, chain might exist
 
 	database.Logger.Info("NFTables infrastructure ready")
@@ -86,7 +88,7 @@ func ClearNFTRules() error {
 	database.Logger.Info("Clearing existing NFTables rules")
 
 	// Flush all rules in base-rule-chain
-	cmd := "nft flush chain bridge netvine-table base-rule-chain"
+	cmd := "nft flush chain ip netvine-table base-rule-chain"
 	err := command.GoLinuxShell(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to flush chain: %w", err)
@@ -100,7 +102,7 @@ func BuildNFTCommand(rule models.NFTRule) string {
 	var parts []string
 
 	// Start with base command
-	parts = append(parts, "nft add rule bridge netvine-table base-rule-chain")
+	parts = append(parts, "nft add rule ip netvine-table base-rule-chain")
 
 	// Add IP filters FIRST (before protocol)
 	if rule.SrcIP != "" {

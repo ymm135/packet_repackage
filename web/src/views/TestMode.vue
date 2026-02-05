@@ -69,6 +69,16 @@
         </el-descriptions>
       </div>
 
+      <!-- 5-Tuple Info -->
+      <div v-if="result.src_ip" class="result-section">
+        <h4>5-Tuple Info:</h4>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="Source">{{ result.src_ip }}:{{ result.src_port }}</el-descriptions-item>
+          <el-descriptions-item label="Destination">{{ result.dst_ip }}:{{ result.dst_port }}</el-descriptions-item>
+          <el-descriptions-item label="Protocol">{{ result.protocol }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+
       <!-- Parsed Fields -->
       <div class="result-section">
         <h4>Extracted Fields:</h4>
